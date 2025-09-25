@@ -22,12 +22,28 @@ PASSWORD = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 async def click_grader_grade(page, grader: str, grade: str) -> bool:
     """Click the '<grader> population' button matching `grade` exactly."""
     try:
+        # Wait for popup to be available
+        progress["message"] = f"Looking for grader {grader} with grade {grade}..."
         popup = page.locator("div[data-testid='card-pops']").first
+        
+        try:
+            await popup.wait_for(state="visible", timeout=5000)
+        except:
+            progress["message"] = "Popup not found, might need to click the card button again"
+            # Try clicking the card button again
+            try:
+                button = page.locator("button.MuiButtonBase-root.css-1ege7gw").first
+                await button.click()
+                await page.wait_for_timeout(2000)
+            except:
+                return False
+
         await popup.scroll_into_view_if_needed()
         await page.wait_for_timeout(900)
 
         header = page.get_by_text(f"{grader} population", exact=True)
         if not await header.count():
+            progress["message"] = f"Could not find '{grader} population' text"
             return False
 
         wrapper = header.locator("xpath=..")
@@ -46,6 +62,7 @@ async def click_grader_grade(page, grader: str, grade: str) -> bool:
                 await page.wait_for_timeout(500)
                 return True
 
+        progress["message"] = f"Grade {grade} not found for {grader}"
         return False
     except Exception as e:
         progress["message"] = f"Error selecting {grader} {grade}: {e}"
