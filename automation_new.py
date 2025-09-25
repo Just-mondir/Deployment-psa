@@ -224,8 +224,8 @@ async def process_rows_async(all_values, start_row, sheet):
                 try:
                     row_vals = all_values[row]
                     url = row_vals[5] if len(row_vals) > 5 else ""
-                    grader = row_vals[6] if len(row_vals) > 6 else ""
-                    fake_grade = row_vals[7] if len(row_vals) > 7 else ""
+                    grader = row_vals[2] if len(row_vals) > 6 else ""
+                    fake_grade = row_vals[3] if len(row_vals) > 7 else ""
 
                     if not url or not grader or not fake_grade:
                         progress["message"] = f"Skipping row {rnum}: Missing required data"
@@ -259,8 +259,8 @@ async def process_rows_async(all_values, start_row, sheet):
                         if prices:
                             avg = sum(prices) / len(prices)
                             for i, price in enumerate(prices[:4]):
-                                sheet.update_cell(rnum, 12 + i, price)
-                            sheet.update_cell(rnum, 16, avg)
+                                sheet.update_cell(rnum, 6 + i, price)
+                            sheet.update_cell(rnum, 10, avg)
                             progress["message"] = f"Updated row {rnum} with prices and average"
                         else:
                             progress["message"] = f"No prices found for row {rnum}"

@@ -1,5 +1,5 @@
 # Use official Playwright image with Python support
-FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+FROM mcr.microsoft.com/playwright/python:v1.55.0-jammy
 
 # Avoids buffering logs so they appear instantly in Railway
 ENV PYTHONUNBUFFERED=1
