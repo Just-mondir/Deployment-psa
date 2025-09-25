@@ -9,6 +9,20 @@ from playwright.async_api import async_playwright
 # Global progress tracking
 progress = {
     "running": False,
+    "current_row": 0,
+    "total_rows": 0,
+    "status": "",
+    "error": None
+}
+import re
+import asyncio
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from playwright.async_api import async_playwright
+
+# Global progress tracking
+progress = {
+    "running": False,
     "progress": 0,
     "total": 0,
     "error": None,
