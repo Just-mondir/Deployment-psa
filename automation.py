@@ -19,6 +19,7 @@ progress = {
 EMAIL = "likepeas@gmail.com"
 PASSWORD = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
+
 async def click_grader_grade(page, grader: str, grade: str) -> bool:
     """Click the '<grader> population' button matching `grade` exactly."""
     try:
@@ -51,6 +52,7 @@ async def click_grader_grade(page, grader: str, grade: str) -> bool:
         progress["message"] = f"Error selecting {grader} {grade}: {e}"
         return False
 
+
 async def fetch_prices(page, num_sales=4):
     await page.wait_for_timeout(3000)
 
@@ -73,6 +75,7 @@ async def fetch_prices(page, num_sales=4):
             progress["message"] = f"Error fetching price {i+1}: {e}"
             continue
     return prices
+
 
 async def perform_login_if_needed(page) -> bool:
     try:
@@ -192,18 +195,7 @@ async def process_rows_async(all_values, start_row, sheet):
     progress["progress"] = 0
     progress["total"] = len(all_values) - (start_row - 1)
     progress["error"] = None
-    progress["message"] = f"Starting automation with {len(all_values)} total rows, starting from row {start_row}..."
-    
-    # Validate input data
-    if start_row < 1 or start_row > len(all_values):
-        progress["error"] = f"Invalid start row: {start_row}"
-        progress["running"] = False
-        return
-        
-    if len(all_values) < 2:  # Need at least header + 1 data row
-        progress["error"] = "Sheet must contain at least 2 rows (header + data)"
-        progress["running"] = False
-        return
+    progress["message"] = "Starting automation..."
 
     try:
         async with async_playwright() as p:
@@ -234,17 +226,16 @@ async def process_rows_async(all_values, start_row, sheet):
                 rnum = row + 1
                 try:
                     row_vals = all_values[row]
-                    url = row_vals[4] if len(row_vals) > 4 else ""        # Column E
-                    grader = row_vals[1] if len(row_vals) > 1 else ""     # Column B
-                    fake_grade = row_vals[2] if len(row_vals) > 2 else "" # Column C
+                    url = row_vals[5] if len(row_vals) > 5 else ""
+                    grader = row_vals[6] if len(row_vals) > 6 else ""
+                    fake_grade = row_vals[7] if len(row_vals) > 7 else ""
 
                     if not url or not grader or not fake_grade:
-                        progress["message"] = f"Skipping row {rnum}: Missing required data (url: {url}, grader: {grader}, grade: {fake_grade})"
-                        progress["progress"] += 1
+                        progress["message"] = f"Skipping row {rnum}: Missing required data"
                         continue
 
                     grade = fake_grade[:2] if len(fake_grade) > 3 else fake_grade
-                    progress["message"] = f"Processing row {rnum}: {grader} {grade} (URL: {url})"
+                    progress["message"] = f"Processing row {rnum}: {grader} {grade}"
 
                     try:
                         await page.goto(url, timeout=30000)
@@ -271,8 +262,8 @@ async def process_rows_async(all_values, start_row, sheet):
                         if prices:
                             avg = sum(prices) / len(prices)
                             for i, price in enumerate(prices[:4]):
-                                sheet.update_cell(rnum, 5 + i, price)    # Start from column F (index 5)
-                            sheet.update_cell(rnum, 9, avg)              # Column J (index 9) for average
+                                sheet.update_cell(rnum, 12 + i, price)
+                            sheet.update_cell(rnum, 16, avg)
                             progress["message"] = f"Updated row {rnum} with prices and average"
                         else:
                             progress["message"] = f"No prices found for row {rnum}"
@@ -281,7 +272,6 @@ async def process_rows_async(all_values, start_row, sheet):
 
                     progress["progress"] += 1
                     await page.wait_for_timeout(1200)
-
                 except Exception as e:
                     progress["error"] = str(e)
                     progress["message"] = f"Error processing row {rnum}: {e}"
@@ -296,65 +286,24 @@ async def process_rows_async(all_values, start_row, sheet):
         progress["message"] = f"Critical error: {e}"
         progress["running"] = False
 
-def run_automation(json_path, sheet_name, email=EMAIL, password=PASSWORD):
-    """Main entry point for the automation"""
-    global progress, EMAIL, PASSWORD
-    
-    # Update credentials if provided (but fallback to constants if not)
-    if email != EMAIL:
-        EMAIL = email
-    if password != PASSWORD:
-        PASSWORD = password
+                except Exception as e:
+                    progress["error"] = str(e)
 
-    try:
-        # Reset progress state
-        progress.update({
-            "running": True,
-            "progress": 0,
-            "total": 0,
-            "error": None,
-            "message": "Initializing..."
-        })
+                progress["progress"] += 1
 
-        # Verify the JSON file exists
-        if not os.path.exists(json_path):
-            raise FileNotFoundError(f"JSON credentials file not found: {json_path}")
-
-        # Setup Google Sheets
-        scope = [
-            'https://spreadsheets.google.com/feeds',
-            'https://www.googleapis.com/auth/drive'
-        ]
-        progress["message"] = "Loading credentials..."
-        
-        try:
-            creds = ServiceAccountCredentials.from_json_keyfile_name(json_path, scope)
-            client = gspread.authorize(creds)
-            sheet = client.open(sheet_name).sheet1
-        except Exception as e:
-            raise Exception(f"Failed to connect to Google Sheets: {str(e)}")
-
-        progress["message"] = "Reading sheet data..."
-        all_values = sheet.get_all_values()
-        
-        if not all_values:
-            raise Exception("Sheet is empty")
-
-        # Set initial progress state
-        total_rows = len(all_values) - 1  # Subtract 1 to account for header row
-        if total_rows <= 0:
-            raise Exception("No data rows found in sheet")
-
-        progress.update({
-            "total": total_rows,
-            "progress": 0,
-            "message": f"Connected to sheet '{sheet_name}'. Found {total_rows} rows to process."
-        })
-
-        # Run the async processing - always start from row 2 to skip header
-        asyncio.run(process_rows_async(all_values, 2, sheet))
-
+            await browser.close()
     except Exception as e:
         progress["error"] = str(e)
-        progress["message"] = f"Setup error: {e}"
-        progress["running"] = False
+
+    progress["running"] = False
+    progress["message"] = "Automation finished"
+
+
+def run_automation(json_path, sheet_name, email, password, start_row=1):
+    global progress
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_name(json_path, scope)
+    client = gspread.authorize(creds)
+    sheet = client.open(sheet_name).sheet1
+    all_values = sheet.get_all_values()
+    asyncio.run(process_rows_async(all_values, start_row, sheet, email, password))
