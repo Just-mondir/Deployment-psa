@@ -1,7 +1,7 @@
 import os
 import threading
 from flask import Flask, render_template, request, jsonify
-from automation import run_automation, progress
+from automation_new import run_automation, progress
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
@@ -36,7 +36,7 @@ def start():
 
     # Replace with your login creds
     email = os.getenv("LOGIN_EMAIL", "likepeas@gmail.com")
-    password = os.getenv("LOGIN_PASSWORD", "changeme")
+    password = os.getenv("LOGIN_PASSWORD", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
 
     def task():
         run_automation(json_path, sheet_name, email, password)
