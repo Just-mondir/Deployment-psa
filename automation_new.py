@@ -225,6 +225,10 @@ async def process_rows_async(all_values, start_row, sheet):
                 ),
             )
             page = await context.new_page()
+            
+            # Track if we've done the initial login
+            is_first_card = True
+            logged_in = False
 
             for row in range(start_row - 1, len(all_values)):
                 if not progress["running"]:
@@ -248,21 +252,34 @@ async def process_rows_async(all_values, start_row, sheet):
 
                     try:
                         await page.goto(url, timeout=30000)
-                    except Exception as e:
-                        progress["message"] = f"Navigation error for row {rnum}: {e}"
-                        continue
-                    await page.wait_for_timeout(2000)
-
-                    # Click card button
-                    try:
+                        await page.wait_for_timeout(2000)
+                        
+                        # Click card button
                         button = page.locator("button.MuiButtonBase-root.css-1ege7gw").first
                         await button.click()
                         await page.wait_for_timeout(2000)
-                    except:
-                        pass
 
-                    # Handle login if needed
-                    await perform_login_if_needed(page)
+                        # Only handle login for the first card
+                        if is_first_card:
+                            progress["message"] = "Performing initial login..."
+                            if await perform_login_if_needed(page):
+                                logged_in = True
+                                progress["message"] = "Successfully logged in. Processing cards..."
+                            else:
+                                progress["error"] = "Failed to perform initial login"
+                                return
+                            
+                            # After login, click the card button again
+                            await button.click()
+                            await page.wait_for_timeout(2000)
+                            is_first_card = False
+                            
+                    except Exception as e:
+                        progress["message"] = f"Navigation/button error for row {rnum}: {str(e)}"
+                        if is_first_card:  # If we failed on first card, stop entirely
+                            progress["error"] = "Failed to process first card and login"
+                            return
+                        continue
 
                     # Select grader and grade
                     success = await click_grader_grade(page, grader, grade)
