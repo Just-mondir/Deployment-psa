@@ -316,8 +316,8 @@ def run_automation(json_path, sheet_name, email=EMAIL, password=PASSWORD):
         all_values = sheet.get_all_values()
         progress["message"] = f"Connected to sheet '{sheet_name}'"
 
-        # Run the async processing
-        asyncio.run(process_rows_async(all_values, 1, sheet))
+        # Run the async processing - always start from row 2 to skip header
+        asyncio.run(process_rows_async(all_values, 2, sheet))
 
     except Exception as e:
         progress["error"] = str(e)
