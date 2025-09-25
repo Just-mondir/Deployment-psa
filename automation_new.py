@@ -251,13 +251,41 @@ async def process_rows_async(all_values, start_row, sheet):
                     progress["message"] = f"Processing row {rnum}: {grader} {grade} (URL: {url})"
 
                     try:
+                        # Navigation with debug info
+                        progress["message"] = f"Navigating to card URL for row {rnum}..."
                         await page.goto(url, timeout=30000)
                         await page.wait_for_timeout(2000)
                         
-                        # Click card button
-                        button = page.locator("button.MuiButtonBase-root.css-1ege7gw").first
-                        await button.click()
-                        await page.wait_for_timeout(2000)
+                        # Try to click card button with retries and debug info
+                        max_retries = 3
+                        button_clicked = False
+                        
+                        for retry in range(max_retries):
+                            try:
+                                progress["message"] = f"Attempting to click card button (attempt {retry + 1}/{max_retries})..."
+                                button = page.locator("button.MuiButtonBase-root.css-1ege7gw").first
+                                
+                                # Wait for button to be visible
+                                await button.wait_for(state="visible", timeout=5000)
+                                
+                                # Try to scroll to button
+                                await button.scroll_into_view_if_needed()
+                                await page.wait_for_timeout(1000)
+                                
+                                # Click the button
+                                await button.click()
+                                await page.wait_for_timeout(2000)
+                                button_clicked = True
+                                progress["message"] = f"Successfully clicked card button on row {rnum}"
+                                break
+                            except Exception as click_error:
+                                progress["message"] = f"Button click attempt {retry + 1} failed: {str(click_error)}"
+                                await page.wait_for_timeout(1000)
+                        
+                        if not button_clicked:
+                            progress["message"] = f"⚠️ Failed to click card button after {max_retries} attempts on row {rnum}. Skipping to next row."
+                            progress["progress"] += 1
+                            continue
 
                         # Only handle login for the first card
                         if is_first_card:
@@ -269,9 +297,16 @@ async def process_rows_async(all_values, start_row, sheet):
                                 progress["error"] = "Failed to perform initial login"
                                 return
                             
-                            # After login, click the card button again
-                            await button.click()
-                            await page.wait_for_timeout(2000)
+                            # After login, click the card button again with debug
+                            try:
+                                progress["message"] = "Re-clicking card button after login..."
+                                await button.click()
+                                await page.wait_for_timeout(2000)
+                            except Exception as post_login_error:
+                                progress["message"] = f"Failed to click button after login: {str(post_login_error)}. Skipping row."
+                                progress["progress"] += 1
+                                continue
+                            
                             is_first_card = False
                             
                     except Exception as e:
