@@ -223,9 +223,9 @@ async def process_rows_async(all_values, start_row, sheet):
                 rnum = row + 1
                 try:
                     row_vals = all_values[row]
-                    url = row_vals[5] if len(row_vals) > 5 else ""
-                    grader = row_vals[2] if len(row_vals) > 6 else ""
-                    fake_grade = row_vals[3] if len(row_vals) > 7 else ""
+                    url = row_vals[4] if len(row_vals) > 4 else ""        # Column E
+                    grader = row_vals[1] if len(row_vals) > 1 else ""     # Column B
+                    fake_grade = row_vals[2] if len(row_vals) > 2 else "" # Column C
 
                     if not url or not grader or not fake_grade:
                         progress["message"] = f"Skipping row {rnum}: Missing required data"
@@ -259,8 +259,8 @@ async def process_rows_async(all_values, start_row, sheet):
                         if prices:
                             avg = sum(prices) / len(prices)
                             for i, price in enumerate(prices[:4]):
-                                sheet.update_cell(rnum, 6 + i, price)
-                            sheet.update_cell(rnum, 10, avg)
+                                sheet.update_cell(rnum, 5 + i, price)    # Start from column F (index 5)
+                            sheet.update_cell(rnum, 9, avg)              # Column J (index 9) for average
                             progress["message"] = f"Updated row {rnum} with prices and average"
                         else:
                             progress["message"] = f"No prices found for row {rnum}"
@@ -314,7 +314,13 @@ def run_automation(json_path, sheet_name, email=EMAIL, password=PASSWORD):
         sheet = client.open(sheet_name).sheet1
 
         all_values = sheet.get_all_values()
-        progress["message"] = f"Connected to sheet '{sheet_name}'"
+        # Set initial progress state
+        total_rows = len(all_values) - 1  # Subtract 1 to account for header row
+        progress.update({
+            "total": total_rows,
+            "progress": 0,
+            "message": f"Connected to sheet '{sheet_name}'. Found {total_rows} rows to process."
+        })
 
         # Run the async processing - always start from row 2 to skip header
         asyncio.run(process_rows_async(all_values, 2, sheet))
