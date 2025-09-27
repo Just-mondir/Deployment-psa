@@ -39,18 +39,6 @@ async def click_grader_grade(page, grader: str, grade: str) -> bool:
         # Wait for popup to be available
         progress["message"] = f"Looking for grader {grader} with grade {grade}..."
         popup = page.locator("div[data-testid='card-pops']").first
-        
-        try:
-            await popup.wait_for(state="visible", timeout=5000)
-        except:
-            progress["message"] = "Popup not found, might need to click the card button again"
-            # Try clicking the card button again
-            try:
-                button = page.locator("button.MuiButtonBase-root.css-1ege7gw").first
-                await button.click()
-                await page.wait_for_timeout(2000)
-            except:
-                return False
 
         await popup.scroll_into_view_if_needed()
         await page.wait_for_timeout(900)
@@ -109,6 +97,7 @@ async def perform_login_if_needed(page) -> bool:
     try:
         login_btn = page.locator("button:has-text('Log in')").first
         if await login_btn.count():
+            print("🔐 Login button detected — clicking it")
             await login_btn.click()
             await page.wait_for_timeout(1000)
 
@@ -144,6 +133,7 @@ async def perform_login_if_needed(page) -> bool:
             if email_input:
                 await email_input.fill(EMAIL)
                 await page.wait_for_timeout(300)
+                print("✅ Filled email")
             else:
                 progress["message"] = "Could not locate email input"
                 return False
@@ -281,71 +271,25 @@ async def process_rows_async(all_values, start_row, sheet):
                     grade = fake_grade[:2] if len(fake_grade) > 3 else fake_grade
                     progress["message"] = f"Processing row {rnum}: {grader} {grade} (URL: {url})"
 
-                    try:
+                    
                         # Navigation with debug info
-                        progress["message"] = f"Navigating to card URL for row {rnum}..."
-                        await page.goto(url, timeout=30000)
-                        await page.wait_for_timeout(2000)
+                    progress["message"] = f"Navigating to card URL for row {rnum}..."
+                    await page.goto(url, timeout=30000)
+                    await page.wait_for_timeout(2000)
+                    button = page.locator("button.MuiButtonBase-root.css-1ege7gw").first
+                    await button.wait_for(state="visible", timeout=5000)
+                    await button.click()
+                    print("✅ Clicked card button")
+                    await page.wait_for_timeout(2000)
+                    await perform_login_if_needed(page)
                         
                         # Try to click card button with retries and debug info
-                        max_retries = 3
-                        button_clicked = False
                         
-                        for retry in range(max_retries):
-                            try:
-                                progress["message"] = f"Attempting to click card button (attempt {retry + 1}/{max_retries})..."
-                                button = page.locator("button.MuiButtonBase-root.css-1ege7gw").first
-                                
-                                # Wait for button to be visible
-                                await button.wait_for(state="visible", timeout=5000)
-                                
-                                # Try to scroll to button
-                                await button.scroll_into_view_if_needed()
-                                await page.wait_for_timeout(1000)
-                                
-                                # Click the button
-                                await button.click()
-                                await page.wait_for_timeout(2000)
-                                button_clicked = True
-                                progress["message"] = f"Successfully clicked card button on row {rnum}"
-                                break
-                            except Exception as click_error:
-                                progress["message"] = f"Button click attempt {retry + 1} failed: {str(click_error)}"
-                                await page.wait_for_timeout(1000)
                         
-                        if not button_clicked:
-                            progress["message"] = f"⚠️ Failed to click card button after {max_retries} attempts on row {rnum}. Skipping to next row."
-                            progress["progress"] += 1
-                            continue
+                        
 
                         # Only handle login for the first card
-                        if is_first_card:
-                            progress["message"] = "Performing initial login..."
-                            if await perform_login_if_needed(page):
-                                logged_in = True
-                                progress["message"] = "Successfully logged in. Processing cards..."
-                            else:
-                                progress["error"] = "Failed to perform initial login"
-                                return
-                            
-                            # After login, click the card button again with debug
-                            try:
-                                progress["message"] = "Re-clicking card button after login..."
-                                await button.click()
-                                await page.wait_for_timeout(2000)
-                            except Exception as post_login_error:
-                                progress["message"] = f"Failed to click button after login: {str(post_login_error)}. Skipping row."
-                                progress["progress"] += 1
-                                continue
-                            
-                            is_first_card = False
-                            
-                    except Exception as e:
-                        progress["message"] = f"Navigation/button error for row {rnum}: {str(e)}"
-                        if is_first_card:  # If we failed on first card, stop entirely
-                            progress["error"] = "Failed to process first card and login"
-                            return
-                        continue
+                        
 
                     # Select grader and grade
                     success = await click_grader_grade(page, grader, grade)
